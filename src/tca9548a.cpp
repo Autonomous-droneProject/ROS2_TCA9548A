@@ -1,4 +1,4 @@
-#include "tca9548a.hpp" // Adjusted include path
+#include "tca9548a/tca9548a.hpp" // Adjusted include path
 
 #include <fcntl.h>
 #include <linux/i2c-dev.h>
