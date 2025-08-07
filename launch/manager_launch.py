@@ -4,14 +4,9 @@ from launch import LaunchDescription
 from launch_ros.actions import Node
 
 def generate_launch_description():
-    # Get the directory of your package and the config directory
+    # Get the directory of your package and the path to the single parameter file
     pkg_dir = get_package_share_directory('tca9548a')
-    config_dir = os.path.join(pkg_dir, 'config')
-
-    # Path to the parameter files
-    tca_one_params_file = os.path.join(config_dir, 'tca_one_params.yaml')
-    tca_two_params_file = os.path.join(config_dir, 'tca_two_params.yaml')
-    manager_params_file = os.path.join(config_dir, 'manager_params.yaml')
+    config_file_path = os.path.join(pkg_dir, 'config', 'all_params.yaml')
 
     # Create the launch description with all three nodes
     return LaunchDescription([
@@ -20,7 +15,7 @@ def generate_launch_description():
             package='tca9548a',
             executable='tca9548a_node',
             name='tca_node_one',
-            parameters=[tca_one_params_file],
+            parameters=[config_file_path],
             output='screen',
             emulate_tty=True
         ),
@@ -30,7 +25,7 @@ def generate_launch_description():
             package='tca9548a',
             executable='tca9548a_node',
             name='tca_node_two',
-            parameters=[tca_two_params_file],
+            parameters=[config_file_path],
             output='screen',
             emulate_tty=True
         ),
@@ -40,7 +35,7 @@ def generate_launch_description():
             package='tca9548a',
             executable='tca9548a_manager',
             name='tca9548a_manager',
-            parameters=[manager_params_file],
+            parameters=[config_file_path],
             output='screen',
             emulate_tty=True
         ),
