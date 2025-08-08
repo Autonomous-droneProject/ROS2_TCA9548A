@@ -61,6 +61,9 @@ Tca9548aManager::Tca9548aManager(const rclcpp::NodeOptions &options)
               "Service server for 'select_channel' is ready.");
 }
 
+/**
+ * @brief registers the i2c device. Does not init the device
+ */
 void Tca9548aManager::handle_register_device(
     const std::shared_ptr<tca9548a::srv::RegisterDevice::Request> request,
     std::shared_ptr<tca9548a::srv::RegisterDevice::Response> response) {
@@ -111,7 +114,8 @@ void Tca9548aManager::handle_register_device(
     return;
   }
 
-  // --- 4. Initialize the device ---
+  /*
+    // --- 4. Initialize the device ---
   Tca9548a &tca_driver = tca_drivers_.at(request->tca_address);
   if (!new_device->initialize(tca_driver, request->channel)) {
     RCLCPP_ERROR(this->get_logger(),
@@ -120,13 +124,14 @@ void Tca9548aManager::handle_register_device(
     response->success = false;
     return;
   }
+  */
 
   // --- 5. Add the device to the map and return success ---
   devices_.at(request->tca_address)
       .emplace(request->channel, std::move(new_device));
   response->success = true;
   RCLCPP_INFO(this->get_logger(),
-              "Successfully registered and initialized device '%s' on TCA "
+              "Successfully registered device '%s' on TCA "
               "0x%02X, channel %d.",
               request->device_type.c_str(), request->tca_address,
               request->channel);
@@ -143,6 +148,9 @@ Tca9548aManager::create_device(const std::string &device_type) {
   }
 }
 
+/**
+ * @brief preform init of a generic i2c device.
+ */
 void Tca9548aManager::init_sensor_device(const std::shared_ptr<tca9548a::srv::InitDevice::Request> request, std::shared_ptr<tca9548a::srv::InitDevice::Response> response) {
   // --- 1. Acquire the mutex to protect the shared resource ---
   std::lock_guard<std::mutex> lock(tca_mutex_);
@@ -167,7 +175,10 @@ void Tca9548aManager::init_sensor_device(const std::shared_ptr<tca9548a::srv::In
   // --- 3. Perform the polymorphic call to initialize the device ---
   Tca9548a& tca_driver = tca_drivers_.at(request->tca_address);
   I2CDevice& device = *devices_.at(request->tca_address).at(request->channel);
-  bool success = device.initialize(tca_driver, request->channel);
+  tca_driver.open_bus();
+  tca_driver.select_channel(request->channel);
+  bool success = device.initialize();
+  tca_driver.close_bus();
 
   // --- 4. Return the result ---
   response->success = success;
@@ -180,6 +191,9 @@ void Tca9548aManager::init_sensor_device(const std::shared_ptr<tca9548a::srv::In
   }
 }
 
+/**
+ * @brief preform config of a generic i2c device.
+ */
 void Tca9548aManager::config_sensor_device(
     const std::shared_ptr<tca9548a::srv::ConfigDevice::Request> request,
     std::shared_ptr<tca9548a::srv::ConfigDevice::Response> response) {
@@ -204,8 +218,10 @@ void Tca9548aManager::config_sensor_device(
 
   Tca9548a& tca_driver = tca_drivers_.at(request->tca_address);
   I2CDevice& device = *devices_.at(request->tca_address).at(request->channel);
-
-  bool success = device.configure(tca_driver, request->channel);
+  tca_driver.open_bus();
+  tca_driver.select_channel(request->channel);
+  bool success = device.configure();
+  tca_driver.close_bus();
 
   response->success = success;
   if (success) {
@@ -217,6 +233,9 @@ void Tca9548aManager::config_sensor_device(
   }
 }
 
+/**
+ * @brief preform read of a generic i2c device.
+ */
 void Tca9548aManager::read_sensor_device(
     const std::shared_ptr<tca9548a::srv::ReadDevice::Request> request,
     std::shared_ptr<tca9548a::srv::ReadDevice::Response> response) {
@@ -241,8 +260,10 @@ void Tca9548aManager::read_sensor_device(
 
   Tca9548a& tca_driver = tca_drivers_.at(request->tca_address);
   I2CDevice& device = *devices_.at(request->tca_address).at(request->channel);
-
-  ReadResult result = device.read(tca_driver, request->channel);
+  tca_driver.open_bus();
+  tca_driver.select_channel(request->channel);
+  ReadResult result = device.read();
+  tca_driver.close_bus();
 
   response->success = result.success;
   if (result.success) {

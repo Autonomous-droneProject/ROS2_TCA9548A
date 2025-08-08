@@ -14,9 +14,9 @@ class I2CDevice {
 public:
   virtual ~I2CDevice() = default;
 
-  virtual bool initialize(Tca9548a&driver, uint8_t channel) = 0;
-  virtual bool configure(Tca9548a& driver, uint8_t channel) = 0;
-  virtual ReadResult read(Tca9548a& driver, uint8_t channel) = 0;
+  virtual bool initialize() = 0;
+  virtual bool configure() = 0;
+  virtual ReadResult read() = 0;
 
 
 };
