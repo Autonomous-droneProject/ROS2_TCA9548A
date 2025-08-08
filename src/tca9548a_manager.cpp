@@ -1,8 +1,10 @@
 #include "tca9548a/tca9548a_manager.hpp"
 
+using std::placeholders::_1;
+using std::placeholders::_2;
 namespace tca9548a {
 Tca9548aManager::Tca9548aManager(const rclcpp::NodeOptions &options)
-    : rclcpp::Node("tca_manager", options) {
+    : rclcpp::Node("tca_manager", options), device_loader_("tca9548a", "tca9548a::I2CDevice") {
   RCLCPP_INFO(this->get_logger(), "Starting TCA ros2 manager node...");
 
   // --- 1. Declare and get parameters ---
@@ -34,44 +36,231 @@ Tca9548aManager::Tca9548aManager(const rclcpp::NodeOptions &options)
     }
   }
 
-  // --- 3. Create channel server ---
-  select_channel_service_ = this->create_service<tca9548a::srv::SelectChannel>(
-      "select_channel",
-      std::bind(&Tca9548aManager::handle_select_channel, this,
-                std::placeholders::_1, std::placeholders::_2));
+  // --- 3a. Initialize registration service ---
+  register_device_service_ =
+      this->create_service<tca9548a::srv::RegisterDevice>(
+          "register_device",
+          std::bind(&Tca9548aManager::handle_register_device, this, _1, _2));
 
-  RCLCPP_INFO(this->get_logger(), "Service server for 'select_channel' is ready.");
-  
+  // --- 3b. Initialize init service ---
+  init_sensor_service_ = this->create_service<tca9548a::srv::InitDevice>(
+      "init_device",
+      std::bind(&Tca9548aManager::init_sensor_device, this, _1, _2));
+
+  // --- 3c. Initialize config service ---
+  config_sensor_service_ = this->create_service<tca9548a::srv::ConfigDevice>(
+      "config_device",
+      std::bind(&Tca9548aManager::config_sensor_device, this, _1, _2));
+
+  // --- 3d. Initialize read service
+  read_sensor_service_ = this->create_service<tca9548a::srv::ReadDevice>(
+      "read_device",
+      std::bind(&Tca9548aManager::read_sensor_device, this, _1, _2));
+
+  RCLCPP_INFO(this->get_logger(),
+              "Service server for 'select_channel' is ready.");
 }
 
-void Tca9548aManager::handle_select_channel(
-  const std::shared_ptr<tca9548a::srv::SelectChannel::Request> request,
-  std::shared_ptr<tca9548a::srv::SelectChannel::Response> response) {
-    // Check if TCA drivers exist in map
-    // Check if the requested TCA address exists in our map
-    if (tca_drivers_.find(request->address) == tca_drivers_.end()) {
-        RCLCPP_ERROR(this->get_logger(), "Received request for unknown TCA address: 0x%02X", request->address);
-        response->success = false;
-        return;
-    }
+void Tca9548aManager::handle_register_device(
+    const std::shared_ptr<tca9548a::srv::RegisterDevice::Request> request,
+    std::shared_ptr<tca9548a::srv::RegisterDevice::Response> response) {
 
-    Tca9548a& driver = tca_drivers_.at(request->address);
-        RCLCPP_INFO(this->get_logger(), "Received request to select channel %d on TCA 0x%02X", request->channel, request->address);
-    bool success = driver.select_channel(request->channel);
-    response->success = success;
-    if (success) {
-        RCLCPP_INFO(this->get_logger(), "Successfully selected channel %d on TCA 0x%02X.", request->channel, request->address);
-    } else {
-        RCLCPP_ERROR(this->get_logger(), "Failed to select channel %d on TCA 0x%02X.", request->channel, request->address);
-    }
+  // --- 1. Acquire the mutex to protect the shared resource ---
+  std::lock_guard<std::mutex> lock(tca_mutex_);
+
+  RCLCPP_INFO(this->get_logger(),
+              "Attempting to register device '%s' on TCA 0x%02X, channel %d.",
+              request->device_type.c_str(), request->tca_address,
+              request->channel);
+
+  // --- 2. Input Validation ---
+  if (tca_drivers_.find(request->tca_address) == tca_drivers_.end()) {
+    RCLCPP_ERROR(this->get_logger(),
+                 "Request failed: Unknown TCA address 0x%02X.",
+                 request->tca_address);
+    response->success = false;
+    return;
   }
+
+  auto &device_map_for_tca = devices_.at(request->tca_address);
+  if (device_map_for_tca.find(request->channel) != device_map_for_tca.end()) {
+    RCLCPP_ERROR(
+        this->get_logger(),
+        "Request failed: Channel %d on TCA 0x%02X is already occupied.",
+        request->channel, request->tca_address);
+    response->success = false;
+    return;
+  }
+
+  // --- 3. Create the Device using a Factory Pattern ---
+  std::unique_ptr<I2CDevice> new_device;
+  try {
+    new_device = create_device(request->device_type);
+  } catch (const std::exception &e) {
+    RCLCPP_ERROR(this->get_logger(), "Failed to create device of type '%s': %s",
+                 request->device_type.c_str(), e.what());
+    response->success = false;
+    return;
+  }
+
+  if (!new_device) {
+    RCLCPP_ERROR(this->get_logger(),
+                 "Request failed: Unknown device type '%s'.",
+                 request->device_type.c_str());
+    response->success = false;
+    return;
+  }
+
+  // --- 4. Initialize the device ---
+  Tca9548a &tca_driver = tca_drivers_.at(request->tca_address);
+  if (!new_device->initialize(tca_driver, request->channel)) {
+    RCLCPP_ERROR(this->get_logger(),
+                 "Initialization of device '%s' on channel %d failed.",
+                 request->device_type.c_str(), request->channel);
+    response->success = false;
+    return;
+  }
+
+  // --- 5. Add the device to the map and return success ---
+  devices_.at(request->tca_address)
+      .emplace(request->channel, std::move(new_device));
+  response->success = true;
+  RCLCPP_INFO(this->get_logger(),
+              "Successfully registered and initialized device '%s' on TCA "
+              "0x%02X, channel %d.",
+              request->device_type.c_str(), request->tca_address,
+              request->channel);
+}
+
+pluginlib::UniquePtr<I2CDevice>
+Tca9548aManager::create_device(const std::string &device_type) {
+  try {
+    return device_loader_.createUniqueInstance(device_type);
+  } catch (const pluginlib::PluginlibException &ex) {
+    RCLCPP_ERROR(this->get_logger(), "Failed to create device of type '%s': %s",
+                 device_type.c_str(), ex.what());
+    return nullptr;
+  }
+}
+
+void Tca9548aManager::init_sensor_device(const std::shared_ptr<tca9548a::srv::InitDevice::Request> request, std::shared_ptr<tca9548a::srv::InitDevice::Response> response) {
+  // --- 1. Acquire the mutex to protect the shared resource ---
+  std::lock_guard<std::mutex> lock(tca_mutex_);
+
+  RCLCPP_INFO(this->get_logger(), "Attempting to initialize device on TCA 0x%02X, channel %d.",
+              request->tca_address, request->channel);
+  
+  // --- 2. Input Validation ---
+  if (tca_drivers_.find(request->tca_address) == tca_drivers_.end()) {
+    RCLCPP_ERROR(this->get_logger(), "Request failed: Unknown TCA address 0x%02X.", request->tca_address);
+    response->success = false;
+    return;
+  }
+  
+  auto& device_map_for_tca = devices_.at(request->tca_address);
+  if (device_map_for_tca.find(request->channel) == device_map_for_tca.end()) {
+    RCLCPP_ERROR(this->get_logger(), "Request failed: No device is registered on channel %d.", request->channel);
+    response->success = false;
+    return;
+  }
+
+  // --- 3. Perform the polymorphic call to initialize the device ---
+  Tca9548a& tca_driver = tca_drivers_.at(request->tca_address);
+  I2CDevice& device = *devices_.at(request->tca_address).at(request->channel);
+  bool success = device.initialize(tca_driver, request->channel);
+
+  // --- 4. Return the result ---
+  response->success = success;
+  if (success) {
+    RCLCPP_INFO(this->get_logger(), "Successfully initialized device on TCA 0x%02X, channel %d.",
+                request->tca_address, request->channel);
+  } else {
+    RCLCPP_ERROR(this->get_logger(), "Failed to initialize device on TCA 0x%02X, channel %d.",
+                 request->tca_address, request->channel);
+  }
+}
+
+void Tca9548aManager::config_sensor_device(
+    const std::shared_ptr<tca9548a::srv::ConfigDevice::Request> request,
+    std::shared_ptr<tca9548a::srv::ConfigDevice::Response> response) {
+  
+  std::lock_guard<std::mutex> lock(tca_mutex_);
+
+  RCLCPP_INFO(this->get_logger(), "Attempting to configure device on TCA 0x%02X, channel %d.",
+              request->tca_address, request->channel);
+  
+  if (tca_drivers_.find(request->tca_address) == tca_drivers_.end()) {
+    RCLCPP_ERROR(this->get_logger(), "Request failed: Unknown TCA address 0x%02X.", request->tca_address);
+    response->success = false;
+    return;
+  }
+  
+  auto& device_map_for_tca = devices_.at(request->tca_address);
+  if (device_map_for_tca.find(request->channel) == device_map_for_tca.end()) {
+    RCLCPP_ERROR(this->get_logger(), "Request failed: No device is registered on channel %d.", request->channel);
+    response->success = false;
+    return;
+  }
+
+  Tca9548a& tca_driver = tca_drivers_.at(request->tca_address);
+  I2CDevice& device = *devices_.at(request->tca_address).at(request->channel);
+
+  bool success = device.configure(tca_driver, request->channel, request->payload);
+
+  response->success = success;
+  if (success) {
+    RCLCPP_INFO(this->get_logger(), "Successfully configured device on TCA 0x%02X, channel %d.",
+                request->tca_address, request->channel);
+  } else {
+    RCLCPP_ERROR(this->get_logger(), "Failed to configure device on TCA 0x%02X, channel %d.",
+                 request->tca_address, request->channel);
+  }
+}
+
+void Tca9548aManager::read_sensor_device(
+    const std::shared_ptr<tca9548a::srv::ReadDevice::Request> request,
+    std::shared_ptr<tca9548a::srv::ReadDevice::Response> response) {
+  
+  std::lock_guard<std::mutex> lock(tca_mutex_);
+
+  RCLCPP_INFO(this->get_logger(), "Attempting to read device on TCA 0x%02X, channel %d.",
+              request->tca_address, request->channel);
+  
+  if (tca_drivers_.find(request->tca_address) == tca_drivers_.end()) {
+    RCLCPP_ERROR(this->get_logger(), "Request failed: Unknown TCA address 0x%02X.", request->tca_address);
+    response->success = false;
+    return;
+  }
+  
+  auto& device_map_for_tca = devices_.at(request->tca_address);
+  if (device_map_for_tca.find(request->channel) == device_map_for_tca.end()) {
+    RCLCPP_ERROR(this->get_logger(), "Request failed: No device is registered on channel %d.", request->channel);
+    response->success = false;
+    return;
+  }
+
+  Tca9548a& tca_driver = tca_drivers_.at(request->tca_address);
+  I2CDevice& device = *devices_.at(request->tca_address).at(request->channel);
+
+  ReadResult result = device.read(tca_driver, request->channel);
+
+  response->success = result.success;
+  if (result.success) {
+    response->reading = result.reading;
+    RCLCPP_INFO(this->get_logger(), "Successfully read from device on TCA 0x%02X, channel %d. Distance: %.2fmm",
+                request->tca_address, request->channel, result.reading);
+  } else {
+    response->reading = 0.0f;
+    RCLCPP_ERROR(this->get_logger(), "Failed to read from device on TCA 0x%02X, channel %d.",
+                 request->tca_address, request->channel);
+  }
+}
 } // namespace tca9548a
 
-int main(int argc, char *argv[])
-{
-    rclcpp::init(argc, argv);
-    auto node = std::make_shared<tca9548a::Tca9548aManager>();
-    rclcpp::spin(node);
-    rclcpp::shutdown();
-    return 0;
+int main(int argc, char *argv[]) {
+  rclcpp::init(argc, argv);
+  auto node = std::make_shared<tca9548a::Tca9548aManager>();
+  rclcpp::spin(node);
+  rclcpp::shutdown();
+  return 0;
 }
