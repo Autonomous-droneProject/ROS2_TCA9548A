@@ -1,0 +1,6 @@
+# Parameters for the central TCA node
+tca_node:
+  ros__parameters:
+    i2c_bus: "/dev/i2c-1"
+    # A list of I2C addresses (in decimal) for all TCA devices on the bus
+    tca_addresses: [112, 113] # Example for two TCAs at addresses 0x70 and 0x71
