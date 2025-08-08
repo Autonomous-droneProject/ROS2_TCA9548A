@@ -1,0 +1,5 @@
+uint8 tca_adcress
+uint8 channel
+---
+bool success
+float32 reading

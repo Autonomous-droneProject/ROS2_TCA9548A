@@ -12,7 +12,10 @@ find_package(rclcpp REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
-  "srv/SelectChannel.srv"
+  "srv/RegisterDevice.srv"
+  "srv/InitDevice.srv"
+  "srv/ConfigDevice.srv"
+  "srv/ReadDevice.srv"
 )
 
 add_library(tca9548a_driver src/tca9548a.cpp)

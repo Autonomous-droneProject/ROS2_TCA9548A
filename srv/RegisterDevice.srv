@@ -1,0 +1,5 @@
+uint8 tca_address
+uint8 channel
+string device_type
+---
+bool success
