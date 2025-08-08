@@ -14,7 +14,7 @@ Tca9548aManager::Tca9548aManager(const rclcpp::NodeOptions &options)
       this->declare_parameter<std::vector<int64_t>>("tca_addresses",
                                                     std::vector<int64_t>{0x70});
   for (int64_t address_64 : addresses_int64) {
-    tca_addresses_param_.push_back(static_cast<int>(address_64));
+    tca_addresses_param_.push_back(static_cast<uint8_t>(address_64));
   }
 
   // --- 2. Initialize a driver for each TCA address ---
@@ -93,7 +93,7 @@ void Tca9548aManager::handle_register_device(
   }
 
   // --- 3. Create the Device using a Factory Pattern ---
-  std::unique_ptr<I2CDevice> new_device;
+  pluginlib::UniquePtr<I2CDevice> new_device;
   try {
     new_device = create_device(request->device_type);
   } catch (const std::exception &e) {
@@ -205,7 +205,7 @@ void Tca9548aManager::config_sensor_device(
   Tca9548a& tca_driver = tca_drivers_.at(request->tca_address);
   I2CDevice& device = *devices_.at(request->tca_address).at(request->channel);
 
-  bool success = device.configure(tca_driver, request->channel, request->payload);
+  bool success = device.configure(tca_driver, request->channel);
 
   response->success = success;
   if (success) {

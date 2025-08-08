@@ -27,14 +27,14 @@ private:
       devices_; // outermost: tca address, inner: channel #
 
   std::string i2c_bus_param_;
-  std::vector<int64_t> tca_addresses_param_;
+  std::vector<uint8_t> tca_addresses_param_;
 
   rclcpp::Service<tca9548a::srv::RegisterDevice>::SharedPtr
       register_device_service_;
   rclcpp::Service<tca9548a::srv::InitDevice>::SharedPtr init_sensor_service_;
   rclcpp::Service<tca9548a::srv::ConfigDevice>::SharedPtr
       config_sensor_service_;
-  rclcpp::Service<tca9548a::srv::RegisterDevice>::SharedPtr
+  rclcpp::Service<tca9548a::srv::ReadDevice>::SharedPtr
       read_sensor_service_;
 
   void handle_register_device(

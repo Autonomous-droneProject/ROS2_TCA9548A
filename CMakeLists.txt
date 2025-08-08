@@ -65,6 +65,7 @@ ament_export_targets(tca9548a_driver_targets
 # Export dependencies needed by consumers of this package
 ament_export_dependencies(rosidl_default_runtime)
 
+# Install launch and config
 install(DIRECTORY launch/ DESTINATION share/${PROJECT_NAME}/launch)
 install(DIRECTORY config/ DESTINATION share/${PROJECT_NAME}/config)
 
