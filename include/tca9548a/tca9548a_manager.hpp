@@ -5,28 +5,26 @@
 
 // Include the generated service header
 #include "tca9548a/srv/select_channel.hpp"
+#include "tca9548a/tca9548a.hpp"
 
 namespace tca9548a {
 
 class Tca9548aManager : public rclcpp::Node {
 public:
-  explicit Tca9548aManager(const rclcpp::NodeOptions &options = rclcpp::NodeOptions());
+  explicit Tca9548aManager(
+      const rclcpp::NodeOptions &options = rclcpp::NodeOptions());
 
 private:
-  // Use a vector to hold a client for each managed TCA9548A device
-  std::vector<rclcpp::Client<tca9548a::srv::SelectChannel>::SharedPtr> clients_;
+  std::map<uint8_t, Tca9548a> tca_drivers_;
+  rclcpp::Service<tca9548a::srv::SelectChannel>::SharedPtr
+      select_channel_service_;
 
-  // Timer to periodically trigger service calls
-  rclcpp::TimerBase::SharedPtr timer_;
+  std::string i2c_bus_param_;
+  std::vector<int> tca_addresses_param_;
 
-  // A counter to cycle through the channels or clients
-  size_t channel_counter_ = 0;
-
-  // Callback function for the timer
-  void timer_callback();
-
-  // Helper function to call the service asynchronously
-  void call_select_channel_service(size_t client_index, uint8_t channel);
+  void handle_select_channel(
+      const std::shared_ptr<tca9548a::srv::SelectChannel::Request> request,
+      std::shared_ptr<tca9548a::srv::SelectChannel::Response> response);
 };
 
 } // namespace tca9548a

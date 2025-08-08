@@ -12,6 +12,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
+find_package(sensor_msgs REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/SelectChannel.srv"
@@ -25,26 +26,8 @@ target_include_directories(tca9548a_driver PUBLIC
   $<INSTALL_INTERFACE:include>
 )
 
-# --- tca9548a_node ---
-add_executable(tca9548a_node src/tca9548a_node.cpp)
-# Tell the compiler where to find the package's headers
-target_include_directories(tca9548a_node PRIVATE
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-)
-
-ament_target_dependencies(tca9548a_node
-  "rclcpp"
-)
-
-rosidl_target_interfaces(tca9548a_node
-  ${PROJECT_NAME} "rosidl_typesupport_cpp"
-)
-
-target_link_libraries(tca9548a_node tca9548a_driver)
-
 # --- tca9548a_manager ---
 add_executable(tca9548a_manager src/tca9548a_manager.cpp)
-# Tell the compiler where to find the package's headers
 target_include_directories(tca9548a_manager PRIVATE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
@@ -57,8 +40,14 @@ rosidl_target_interfaces(tca9548a_manager
   ${PROJECT_NAME} "rosidl_typesupport_cpp"
 )
 
+target_link_libraries(tca9548a_manager tca9548a_driver)
+
+rosidl_target_interfaces(tca9548a_manager
+  ${PROJECT_NAME} "rosidl_typesupport_cpp"
+)
+
+
 install(TARGETS
-  tca9548a_node
   tca9548a_manager
   DESTINATION lib/${PROJECT_NAME}
 )
