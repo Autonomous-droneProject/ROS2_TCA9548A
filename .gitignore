@@ -1,6 +1,4 @@
 build/
 install/
 log/
-.vscode/browse.vc.db
-.vscode/c_cpp_properties.json
-.gitignore
+.vscode/
