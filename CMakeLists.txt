@@ -20,12 +20,21 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/ReadDevice.srv"
 )
 
-add_library(tca9548a_driver src/tca9548a.cpp)
+# Library
+add_library(tca9548a_driver src/tca9548a.cpp src/generic_i2c_manager.cpp)
+ament_target_dependencies(tca9548a_driver "rclcpp" "sensor_msgs")
+rosidl_get_typesupport_target(tca_typesupport_libs ${PROJECT_NAME} "rosidl_typesupport_cpp")
+target_link_libraries(tca9548a_driver
+  ${tca_typesupport_libs}
+)
+
+# Target includes
 target_include_directories(tca9548a_driver PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
 )
 
+# Exec
 add_executable(tca9548a_manager src/tca9548a_manager.cpp)
 ament_target_dependencies(tca9548a_manager "rclcpp" "pluginlib")
 rosidl_get_typesupport_target(tca_typesupport_libs ${PROJECT_NAME} "rosidl_typesupport_cpp")
