@@ -11,6 +11,7 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 find_package(pluginlib REQUIRED)
+find_package(sensor_msgs REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/RegisterDevice.srv"
@@ -33,6 +34,14 @@ target_link_libraries(tca9548a_manager
   ${tca_typesupport_libs}
 )
 
+add_executable(generic_i2c_manager src/generic_i2c_manager.cpp)
+ament_target_dependencies(generic_i2c_manager "rclcpp" "pluginlib" "sensor_msgs")
+rosidl_get_typesupport_target(generic_typesupport_libs ${PROJECT_NAME} "rosidl_typesupport_cpp")
+target_link_libraries(generic_i2c_manager
+  tca9548a_driver
+  ${generic_typesupport_libs}
+)
+
 # --- Modern Installation & Export Rules for Jazzy ---
 install(DIRECTORY
   srv
@@ -40,7 +49,7 @@ install(DIRECTORY
 )
 
 install(TARGETS
-  tca9548a_manager
+  tca9548a_manager generic_i2c_manager
   DESTINATION lib/${PROJECT_NAME}
 )
 
