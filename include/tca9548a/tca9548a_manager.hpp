@@ -3,7 +3,7 @@
 
 #include <rclcpp/rclcpp.hpp>
 
-#include "tca9548a/I2CDevice.hpp"
+#include "tca9548a/i2c_device.hpp"
 #include "tca9548a/srv/config_device.hpp"
 #include "tca9548a/srv/init_device.hpp"
 #include "tca9548a/srv/read_device.hpp"

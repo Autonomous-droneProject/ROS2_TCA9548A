@@ -1,4 +1,4 @@
-#include "tca9548a/GenericI2CManager.hpp"
+#include "tca9548a/generic_i2c_manager.hpp"
 #include <limits>
 
 namespace tca9548a {
@@ -36,7 +36,7 @@ GenericI2CManager::GenericI2CManager(const rclcpp::NodeOptions &options)
   }
 
   auto sensor_list =
-      this->declare_parameter<std::vector<std::string>>("sensor_list", {});
+      this->declare_parameter<std::vector<std::string>>("sensor_list", std::vector<std::string>{});
 
   for (const auto &sensor_name : sensor_list) {
     // Get parameters for each individual sensor from the YAML file
@@ -107,15 +107,14 @@ GenericI2CManager::GenericI2CManager(const rclcpp::NodeOptions &options)
     }
   }
 
-  auto publish_rate = this->declare_parameter<double>("publish_rate", 10.0);
   auto publish_period =
-      std::chrono::milliseconds(static_cast<int>(1000.0 / publish_rate));
+      std::chrono::milliseconds(static_cast<int>(1000.0 / publish_rate_param));
   timer_ = this->create_wall_timer(
       publish_period, std::bind(&GenericI2CManager::timer_callback, this));
 
   RCLCPP_INFO(this->get_logger(),
               "Manager initialized with %zu sensors. Publishing at %.2f Hz.",
-              sensor_list.size(), publish_rate);
+              sensor_list.size(), publish_rate_param);
 }
 
 void GenericI2CManager::timer_callback() {
@@ -162,6 +161,7 @@ void GenericI2CManager::timer_callback() {
     }
   }
 }
+} // namespace tca9548a
 
 int main(int argc, char *argv[]) {
   rclcpp::init(argc, argv);
@@ -171,4 +171,3 @@ int main(int argc, char *argv[]) {
   return 0;
 }
 
-} // namespace tca9548a

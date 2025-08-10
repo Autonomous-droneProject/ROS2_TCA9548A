@@ -42,12 +42,7 @@ target_link_libraries(generic_i2c_manager
   ${generic_typesupport_libs}
 )
 
-# --- Modern Installation & Export Rules for Jazzy ---
-install(DIRECTORY
-  srv
-  DESTINATION share/${PROJECT_NAME}/srv
-)
-
+# Install exec
 install(TARGETS
   tca9548a_manager generic_i2c_manager
   DESTINATION lib/${PROJECT_NAME}
@@ -61,10 +56,10 @@ install(TARGETS tca9548a_driver
   RUNTIME DESTINATION bin
 )
 
-# Explicitly install the include directory
-install(DIRECTORY include/
-  DESTINATION include
-)
+install(DIRECTORY srv/ DESTINATION share/${PROJECT_NAME}/srv)
+install(DIRECTORY include/ DESTINATION include)
+install(DIRECTORY launch/ DESTINATION share/${PROJECT_NAME}/launch)
+install(DIRECTORY config/ DESTINATION share/${PROJECT_NAME}/config)
 
 # EXPORT the targets for other packages to find
 ament_export_targets(tca9548a_driver_targets
@@ -75,7 +70,4 @@ ament_export_targets(tca9548a_driver_targets
 ament_export_dependencies(rosidl_default_runtime)
 
 # Install launch and config
-install(DIRECTORY launch/ DESTINATION share/${PROJECT_NAME}/launch)
-install(DIRECTORY config/ DESTINATION share/${PROJECT_NAME}/config)
-
 ament_package()
