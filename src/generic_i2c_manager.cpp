@@ -52,7 +52,14 @@ GenericI2CManager::GenericI2CManager(const rclcpp::NodeOptions &options)
     config.topic_name = this->declare_parameter<std::string>(
         prefix + "topic_name", sensor_name);
     config.device_type = this->declare_parameter<std::string>(
-        prefix + "device_type", sensor_name);
+        prefix + "device_type", "");
+
+    // Check after this to ensure a device_type was set
+    if (config.device_type.empty()) {
+        RCLCPP_ERROR(this->get_logger(),
+                     "Parameter '%s' for device type is missing. Node will not function correctly.",
+                     (prefix + "device_type").c_str());
+    }
 
     sensor_configs_[sensor_name] = config;
     publishers_[sensor_name] =
