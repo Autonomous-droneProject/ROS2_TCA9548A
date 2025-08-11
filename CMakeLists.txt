@@ -12,12 +12,16 @@ find_package(rclcpp REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(std_msgs)
+find_package(diagnostic_msgs REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
+  "msg/SensorData.msg"
   "srv/RegisterDevice.srv"
   "srv/InitDevice.srv"
   "srv/ConfigDevice.srv"
   "srv/ReadDevice.srv"
+  DEPENDENCIES std_msgs diagnostic_msgs sensor_msgs
 )
 
 # Library

@@ -8,6 +8,7 @@
 #include "tca9548a/srv/init_device.hpp"
 #include "tca9548a/srv/read_device.hpp"
 #include "tca9548a/srv/register_device.hpp"
+#include "tca9548a/msg/sensor_data.hpp"
 #include "tca9548a/tca9548a.hpp"
 #include <functional>
 #include <mutex>

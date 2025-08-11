@@ -260,21 +260,28 @@ void Tca9548aManager::read_sensor_device(
 
   Tca9548a& tca_driver = tca_drivers_.at(request->tca_address);
   I2CDevice& device = *devices_.at(request->tca_address).at(request->channel);
+  
+  tca9548a::msg::SensorData data;
   tca_driver.open_bus();
-  tca_driver.select_channel(request->channel);
-  ReadResult result = device.read();
+  bool select_success = tca_driver.select_channel(request->channel);
+  if (!select_success) {
+      RCLCPP_ERROR(this->get_logger(), "Failed to select channel %d on TCA 0x%02X.",
+                   request->channel, request->tca_address);
+      tca_driver.close_bus(); // Always deselect on failure
+      response->success = false;
+      return;
+  }
+
+  response->data = device.read();
+  response->success = response->data.header.stamp != rclcpp::Time(0, 0);
   tca_driver.close_bus();
 
-  response->success = result.success;
-  if (result.success) {
-    response->reading = result.reading;
-    RCLCPP_INFO(this->get_logger(), "Successfully read from device on TCA 0x%02X, channel %d. Distance: %.2fmm",
-                request->tca_address, request->channel, result.reading);
+  if (response->success) {
+    RCLCPP_INFO(this->get_logger(), "Successfully read from device on TCA 0x%02X, channel %d.", request->tca_address, request->channel);
   } else {
-    response->reading = 0.0f;
-    RCLCPP_ERROR(this->get_logger(), "Failed to read from device on TCA 0x%02X, channel %d.",
-                 request->tca_address, request->channel);
+    RCLCPP_ERROR(this->get_logger(), "Failed to read from device on TCA 0x%02X, channel %d.", request->tca_address, request->channel);
   }
+
 }
 } // namespace tca9548a
 

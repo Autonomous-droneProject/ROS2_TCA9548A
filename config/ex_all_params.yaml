@@ -1,0 +1,28 @@
+tca9548a_manager:
+  ros__parameters:
+    i2c_bus: "/dev/i2c-1"
+    tca_addresses: [112] # A list of TCA addresses (0x70)
+
+generic_i2c_manager:
+  ros__parameters:
+    tca_manager_node_name: "tca9548a_manager" # The name of the manager node to be a client to
+    publish_rate: 10.0
+
+    # This list tells the manager which sensors to configure
+    sensor_list: ["vl53l1x_one", "vl53l1x_two"]
+
+    # Parameters for the first VL53L1X sensor
+    vl53l1x_one:
+      tca_address: 112 # The address of the TCA it's connected to
+      channel: 0       # The channel it's on
+      sensor_address: 41 # The VL53L1X's own I2C address (0x29)
+      topic_name: "vl53l1x/one/distance"
+      device_type: "VL53L1X"
+
+    # Parameters for the second VL53L1X sensor
+    vl53l1x_two:
+      tca_address: 112 # The same TCA address
+      channel: 1       # A different channel
+      sensor_address: 41 # Same VL53L1X address (it's behind the multiplexer)
+      topic_name: "vl53l1x/two/distance"
+      device_type: "VL53L1X"

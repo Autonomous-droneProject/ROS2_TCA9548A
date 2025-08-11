@@ -6,10 +6,9 @@
 #include "tca9548a/srv/init_device.hpp"
 #include "tca9548a/srv/read_device.hpp"
 #include "tca9548a/srv/register_device.hpp"
+#include "tca9548a/msg/sensor_data.hpp"
 #include <map>
 #include <string>
-
-#include "sensor_msgs/msg/range.hpp"
 
 namespace tca9548a {
 struct SensorConfig {
@@ -32,7 +31,7 @@ private:
   rclcpp::Client<tca9548a::srv::InitDevice>::SharedPtr init_device_client_;
   rclcpp::Client<tca9548a::srv::ConfigDevice>::SharedPtr config_device_client_;
 
-  std::map<std::string, rclcpp::Publisher<sensor_msgs::msg::Range>::SharedPtr>
+  std::map<std::string, rclcpp::Publisher<tca9548a::msg::SensorData>::SharedPtr>
       publishers_;
   std::map<std::string, SensorConfig> sensor_configs_;
 

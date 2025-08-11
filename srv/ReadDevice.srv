@@ -2,4 +2,4 @@ uint8 tca_address
 uint8 channel
 ---
 bool success
-float32 reading
+tca9548a/SensorData data

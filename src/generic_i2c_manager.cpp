@@ -56,7 +56,7 @@ GenericI2CManager::GenericI2CManager(const rclcpp::NodeOptions &options)
 
     sensor_configs_[sensor_name] = config;
     publishers_[sensor_name] =
-        this->create_publisher<sensor_msgs::msg::Range>(config.topic_name, 10);
+        this->create_publisher<tca9548a::msg::SensorData>(config.topic_name, 10);
 
     // Register the device
     auto register_req =
@@ -144,20 +144,26 @@ void GenericI2CManager::timer_callback() {
     }
 
     auto result = result_future.get();
-    auto message = sensor_msgs::msg::Range();
+
+    // The publisher should be for the new message type
+    auto publisher_iterator = publishers_.find(sensor_name);
+    if (publisher_iterator == publishers_.end()) {
+        RCLCPP_ERROR(this->get_logger(), "Publisher for sensor '%s' not found.", sensor_name.c_str());
+        continue;
+    }
+
+    auto message = result->data;
 
     if (result->success) {
-      message.header.stamp = this->now();
-      message.header.frame_id = sensor_name;
-      message.range = result->reading / 1000.0f;
-      // ... (fill in other Range fields)
-      publishers_.at(sensor_name)->publish(message);
+      // The message is already populated by the tca_manager service.
+      // You can add additional data here if needed.
+      publisher_iterator->second->publish(message);
     } else {
       RCLCPP_WARN(this->get_logger(),
                   "Failed to read sensor '%s'. Publishing invalid data.",
                   sensor_name.c_str());
-      message.range = std::numeric_limits<float>::infinity();
-      publishers_.at(sensor_name)->publish(message);
+      // The service already returned an invalid message, so we publish that.
+      publisher_iterator->second->publish(message);
     }
   }
 }
